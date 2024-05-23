@@ -13,7 +13,7 @@ public class ApplicationDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<TodoItem>().HasKey(x => x.Id); // Justin waffle
+        modelBuilder.Entity<TodoItem>().HasKey(x => x.Id); // Justin yap
     }
 
     public DbSet<TodoItem> TodoItems { get; set; }
