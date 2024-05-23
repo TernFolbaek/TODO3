@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TODO", "TODO\TODO.csproj", "{5ACE6B42-470B-4532-8E2C-FBD3B5E3486D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntegrationTests", "IntegrationTests\IntegrationTests.csproj", "{B6563249-AFB6-4DBB-A7A8-3C84ECA798F1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5ACE6B42-470B-4532-8E2C-FBD3B5E3486D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5ACE6B42-470B-4532-8E2C-FBD3B5E3486D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5ACE6B42-470B-4532-8E2C-FBD3B5E3486D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5ACE6B42-470B-4532-8E2C-FBD3B5E3486D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B6563249-AFB6-4DBB-A7A8-3C84ECA798F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6563249-AFB6-4DBB-A7A8-3C84ECA798F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6563249-AFB6-4DBB-A7A8-3C84ECA798F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6563249-AFB6-4DBB-A7A8-3C84ECA798F1}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
