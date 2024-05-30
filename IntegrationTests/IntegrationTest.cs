@@ -24,7 +24,7 @@ public class IntegrationTest : IClassFixture<IntegrationTestFixture>
             .WithJsonContent(new
             {
                 Id = fixture.Create<int>(),
-                Description = "Hej",
+                Description = "south america is the second largest continent in the world",
                 IsComplete = false,
                 DueDate = DateTime.UtcNow
             });
