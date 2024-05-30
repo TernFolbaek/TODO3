@@ -91,14 +91,13 @@ namespace TODO.Controllers
             var newUser = new User { Username = model.Username, Password = model.Password };
             _context.Users.Add(newUser);
             await _context.SaveChangesAsync();
-    
-            HttpContext.Session.SetString("LoggedInUser", newUser.Username);
 
-            // Enqueue a simple background job to log a message
-            BackgroundJob.Enqueue(() => LogNewUserSignup(newUser.Username));
+            // Generate token right after saving the new user
+            var token = GenerateJwtToken(newUser);
 
-            return Ok(new { message = "Signup successful" });
+            return Ok(new { token = token, message = "Signup successful" });
         }
+
 
         public void LogNewUserSignup(string username)
         {
