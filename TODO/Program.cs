@@ -30,13 +30,14 @@ builder.Logging.AddDebug();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowWebApp",
-        policy => policy.WithOrigins("http://localhost:3000")  // URL of the frontend
+        policy => policy.WithOrigins("http://localhost:3000")
             .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials());
+            .AllowAnyHeader());
 });
 
+
 // Other services like Hangfire, HttpClient, DbContext, etc.
+
 
 
 // Configure database context with Npgsql

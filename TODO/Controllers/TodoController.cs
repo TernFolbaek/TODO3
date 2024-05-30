@@ -24,7 +24,6 @@ namespace TODO.Controllers
             _logger = logger;
             _context = context;
             _httpClientFactory = httpClientFactory;
-
         }
 
         // GET: api/todo
@@ -60,8 +59,6 @@ namespace TODO.Controllers
                 return StatusCode(500, "Internal Server Error: " + ex.Message);
             }
         }
-
-
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetTodoItem(int id, [FromQuery] string timezone = "UTC")

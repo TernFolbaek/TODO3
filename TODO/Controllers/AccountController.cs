@@ -6,6 +6,12 @@ using TODO.Models;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using System.Linq;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using FluentAssertions.Common;
+
 
 namespace TODO.Controllers
 {
@@ -13,11 +19,14 @@ namespace TODO.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<AccountController> _logger;
+        private readonly IConfiguration _configuration;  
 
-        public AccountController(ApplicationDbContext context, ILogger<AccountController> logger)
+        public AccountController(ApplicationDbContext context, ILogger<AccountController> logger, IConfiguration configuration)
         {
             _context = context;
             _logger = logger;
+            _configuration = configuration; 
+
         }
 
         [HttpPost("login")]
@@ -32,12 +41,38 @@ namespace TODO.Controllers
                 .FirstOrDefaultAsync(u => u.Username == model.Username && u.Password == model.Password);
             if (user != null)
             {
-                HttpContext.Session.SetString("LoggedInUser", user.Username);
-                return Ok(new { message = "Login successful" });
+                var token = GenerateJwtToken(user);
+                return Ok(new { token = token, message = "Login successful" });
             }
-    
+
             return BadRequest(new { error = "Invalid login attempt." });
         }
+
+        private string GenerateJwtToken(User user)
+        {
+
+            var jwtKey = _configuration.GetSection("JWTSecureKey").Value; // Make sure the key name matches what's in appsettings.json
+
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Username),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: "YourIssuer",
+                audience: "YourAudience",
+                claims: claims,
+                expires: DateTime.Now.AddHours(3),
+                signingCredentials: credentials
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
 
         [HttpPost("signup")]
         public async Task<IActionResult> Signup([FromBody] SignupViewModel model)
