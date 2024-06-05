@@ -9,8 +9,16 @@ using System.Linq;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions.Common;
+namespace TODO.Models
+{
+    public class TokenRequest
+    {
+        public string RefreshToken { get; set; }
+    }
+}
 
 
 namespace TODO.Controllers
@@ -29,6 +37,61 @@ namespace TODO.Controllers
 
         }
 
+
+       
+        private (string AccessToken, string RefreshToken) GenerateTokens(User user)
+        {
+            try
+            {
+                var jwtKey = _configuration["JWTSecureKey"];
+                var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+                var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+                var claims = new[]
+                {
+                    new Claim(JwtRegisteredClaimNames.Sub, user.Username),
+                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                };
+
+                var accessToken = new JwtSecurityToken(
+                    issuer: "YourIssuer",
+                    audience: "YourAudience",
+                    claims: claims,
+                    expires: DateTime.UtcNow.AddMinutes(30),
+                    signingCredentials: credentials
+                );
+
+                var writtenToken = new JwtSecurityTokenHandler().WriteToken(accessToken);
+                var refreshToken = GenerateRefreshToken();
+
+                user.RefreshToken = refreshToken;
+                user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7); // Ensure this is in UTC
+                _context.Users.Update(user);
+                _context.SaveChanges();
+
+                return (writtenToken, refreshToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error generating tokens: {ex}");
+                throw;
+            }
+        }
+
+        
+
+        private string GenerateRefreshToken()
+        {
+            var randomNumber = new byte[32];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomNumber);
+                return Convert.ToBase64String(randomNumber);
+            }
+        }
+
+        
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginViewModel model)
         {
@@ -39,39 +102,14 @@ namespace TODO.Controllers
 
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Username == model.Username && u.Password == model.Password);
+
             if (user != null)
             {
-                var token = GenerateJwtToken(user);
-                return Ok(new { token = token, message = "Login successful" });
+                var (accessToken, refreshToken) = GenerateTokens(user);
+                return Ok(new { accessToken, refreshToken, message = "Login successful" });
             }
 
             return BadRequest(new { error = "Invalid login attempt." });
-        }
-        
-
-        private string GenerateJwtToken(User user)
-        {
-
-            var jwtKey = _configuration.GetSection("JWTSecureKey").Value; 
-
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
-            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[]
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Username),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            };
-
-            var token = new JwtSecurityToken(
-                issuer: "YourIssuer",
-                audience: "YourAudience",
-                claims: claims,
-                expires: DateTime.Now.AddHours(3),
-                signingCredentials: credentials
-            );
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
 
@@ -90,13 +128,49 @@ namespace TODO.Controllers
             }
 
             var newUser = new User { Username = model.Username, Password = model.Password };
-            _context.Users.Add(newUser);
-            await _context.SaveChangesAsync();
-            
-            var token = GenerateJwtToken(newUser);
+            newUser.RefreshToken = GenerateRefreshToken();
+            newUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
 
-            return Ok(new { token = token, message = "Signup successful" });
+            _context.Users.Add(newUser);
+            try
+            {
+                await _context.SaveChangesAsync();
+                var (accessToken, refreshToken) = GenerateTokens(newUser);
+                _logger.LogInformation($"Generated Access Token: {accessToken}"); // Log the access token
+                _logger.LogInformation($"Generated Refresh Token: {refreshToken}"); // Log the refresh token
+                return Ok(new { accessToken, refreshToken, message = "Signup successful" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error during signup: {ex}");
+                return StatusCode(500, "An error occurred while creating the user account.");
+            }
         }
+
+
+        
+        [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken([FromBody] TokenRequest request)
+        {
+            _logger.LogInformation($"Received refresh token request with token: {request.RefreshToken}");
+            var utcNow = DateTime.UtcNow; // Get the current time in UTC
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.RefreshToken == request.RefreshToken 
+                                          && u.RefreshTokenExpiryTime > utcNow);
+            if (user == null)
+            {
+                _logger.LogWarning("Invalid refresh token or token expired.");
+                return Unauthorized("Invalid refresh token.");
+            }
+
+            var newTokens = GenerateTokens(user); // Generate new access and refresh tokens
+            _logger.LogInformation($"Generated new access token: {newTokens.AccessToken}");
+            _logger.LogInformation($"Generated new refresh token: {newTokens.RefreshToken}");
+            return Ok(new { accessToken = newTokens.AccessToken, refreshToken = newTokens.RefreshToken });
+        }
+
+
+
 
 
         public void LogNewUserSignup(string username)
