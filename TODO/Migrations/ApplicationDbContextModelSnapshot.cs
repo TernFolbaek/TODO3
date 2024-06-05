@@ -45,7 +45,7 @@ namespace TODO.Migrations
                     b.ToTable("TodoItems");
                 });
 
-            modelBuilder.Entity("TODO.Models.User", b =>
+            modelBuilder.Entity("User", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -64,50 +64,6 @@ namespace TODO.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Users");
-                });
-
-            modelBuilder.Entity("TODO.Models.UserTodo", b =>
-                {
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("TodoId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("UserId", "TodoId");
-
-                    b.HasIndex("TodoId");
-
-                    b.ToTable("UserTodos");
-                });
-
-            modelBuilder.Entity("TODO.Models.UserTodo", b =>
-                {
-                    b.HasOne("TODO.Models.TodoItem", "TodoItem")
-                        .WithMany("UserTodos")
-                        .HasForeignKey("TodoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("TODO.Models.User", "User")
-                        .WithMany("UserTodos")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TodoItem");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("TODO.Models.TodoItem", b =>
-                {
-                    b.Navigation("UserTodos");
-                });
-
-            modelBuilder.Entity("TODO.Models.User", b =>
-                {
-                    b.Navigation("UserTodos");
                 });
 #pragma warning restore 612, 618
         }

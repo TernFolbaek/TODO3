@@ -47,12 +47,11 @@ namespace TODO.Controllers
 
             return BadRequest(new { error = "Invalid login attempt." });
         }
-        
 
         private string GenerateJwtToken(User user)
         {
 
-            var jwtKey = _configuration.GetSection("JWTSecureKey").Value; 
+            var jwtKey = _configuration.GetSection("JWTSecureKey").Value; // Make sure the key name matches what's in appsettings.json
 
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
@@ -92,7 +91,8 @@ namespace TODO.Controllers
             var newUser = new User { Username = model.Username, Password = model.Password };
             _context.Users.Add(newUser);
             await _context.SaveChangesAsync();
-            
+
+            // Generate token right after saving the new user
             var token = GenerateJwtToken(newUser);
 
             return Ok(new { token = token, message = "Signup successful" });
@@ -102,6 +102,7 @@ namespace TODO.Controllers
         public void LogNewUserSignup(string username)
         {
             _logger.LogInformation($"New user signed up: {username}");
+
         }
 
         [HttpPost("logout")]
@@ -110,14 +111,5 @@ namespace TODO.Controllers
             HttpContext.Session.Remove("LoggedInUser");
             return Ok(new { message = "Logged out successfully" });
         }
-        
-        // GET: api/users
-        [HttpGet("users")]
-        public async Task<IActionResult> GetUsers()
-        {
-            var users = await _context.Users.Select(u => new { u.Id, u.Username }).ToListAsync();
-            return Ok(users);
-        }
-
     }
 }
