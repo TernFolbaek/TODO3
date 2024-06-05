@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TODO.Data;
@@ -11,9 +12,11 @@ using TODO.Data;
 namespace TODO.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240530125423_UpdateRelations")]
+    partial class UpdateRelations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -57,13 +60,6 @@ namespace TODO.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("RefreshToken")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("RefreshTokenExpiryTime")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasColumnType("text");
@@ -90,7 +86,7 @@ namespace TODO.Migrations
 
             modelBuilder.Entity("TODO.Models.UserTodo", b =>
                 {
-                    b.HasOne("TODO.Models.TodoItem", "TodoItem")
+                    b.HasOne("TODO.Models.TodoItem", "Todo")
                         .WithMany("UserTodos")
                         .HasForeignKey("TodoId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -102,7 +98,7 @@ namespace TODO.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("TodoItem");
+                    b.Navigation("Todo");
 
                     b.Navigation("User");
                 });

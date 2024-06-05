@@ -1,21 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function CreateTodo() {
     const [description, setDescription] = useState('');
     const [isComplete, setIsComplete] = useState(false);
     const [dueDate, setDueDate] = useState('');
+    const [users, setUsers] = useState([]);
+    const [selectedUserIds, setSelectedUserIds] = useState([]);
+
+    // Fetch users on component mount
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const response = await fetch('https://localhost:7060/users');
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log("Fetched Users:", data); // Log the data to verify it
+                    setUsers(data);
+                } else {
+                    console.error('Failed to fetch users, Status:', response.status); // Log error status
+                }
+            } catch (error) {
+                console.error('Error fetching users:', error); // Log any fetching errors
+            }
+        };
+        fetchUsers();
+    }, []);
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const token = localStorage.getItem('authToken');
+        if (!token){
+            console.error('Missing JWT token in local storage')
+            return;
+        }
+
         const todo = {
-            description: description,
-            isComplete: isComplete,
-            dueDate: new Date(dueDate).toISOString() // Converts to a string in simplified extended ISO format (ISO 8601), which is always in UTC
+            description,
+            isComplete,
+            dueDate: dueDate ? new Date(dueDate).toISOString() : null, // Handle the case where no date is provided
+            usernames: selectedUserIds.map(id => users.find(user => user.id === id)?.username)
         };
         const response = await fetch('https://localhost:7060/api/todo', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(todo),
         });
@@ -24,13 +54,11 @@ function CreateTodo() {
             setDescription('');
             setIsComplete(false);
             setDueDate('');
-        }
-        else
-        {
+            setSelectedUserIds([]);
+        } else {
             const errorText = await response.text();
-            throw new Error('Failed to create todo. Server responded with: ' + errorText);
+            console.error('Failed to create todo. Server responded with:', errorText);
         }
-
     };
 
     return (
@@ -42,17 +70,40 @@ function CreateTodo() {
                 placeholder="Description"
                 required
             />
-            <input
-                type="checkbox"
-                checked={isComplete}
-                onChange={e => setIsComplete(e.target.checked)}
-            />
+            <label>
+                Completed:
+                <input
+                    type="checkbox"
+                    checked={isComplete}
+                    onChange={e => setIsComplete(e.target.checked)}
+                />
+            </label>
             <input
                 type="date"
                 value={dueDate}
                 onChange={e => setDueDate(e.target.value)}
-                required
+                required={false}
             />
+            <label>
+                Assign to:
+                <select
+                    multiple
+                    value={selectedUserIds}
+                    onChange={e => setSelectedUserIds([...e.target.selectedOptions].map(o => Number(o.value)))}
+                    style={{
+                        width: '100%',
+                        height: '100px',
+                        backgroundColor: 'white',
+                        color: 'black'
+                    }}
+                >
+                    {users.map(user => (
+                        <option key={user.id} value={user.id}>{user.username}</option>
+                    ))}
+                </select>
+
+            </label>
+            <p>{selectedUserIds}</p>
             <button type="submit">Create Todo</button>
         </form>
     );
