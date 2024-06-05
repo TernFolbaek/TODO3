@@ -65,7 +65,7 @@ namespace TODO.Controllers
                 var refreshToken = GenerateRefreshToken();
 
                 user.RefreshToken = refreshToken;
-                user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7); // Ensure this is in UTC
+                user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7); 
                 _context.Users.Update(user);
                 _context.SaveChanges();
 
@@ -136,8 +136,8 @@ namespace TODO.Controllers
             {
                 await _context.SaveChangesAsync();
                 var (accessToken, refreshToken) = GenerateTokens(newUser);
-                _logger.LogInformation($"Generated Access Token: {accessToken}"); // Log the access token
-                _logger.LogInformation($"Generated Refresh Token: {refreshToken}"); // Log the refresh token
+                _logger.LogInformation($"Generated Access Token: {accessToken}"); 
+                _logger.LogInformation($"Generated Refresh Token: {refreshToken}"); 
                 return Ok(new { accessToken, refreshToken, message = "Signup successful" });
             }
             catch (Exception ex)
@@ -153,7 +153,7 @@ namespace TODO.Controllers
         public async Task<IActionResult> RefreshToken([FromBody] TokenRequest request)
         {
             _logger.LogInformation($"Received refresh token request with token: {request.RefreshToken}");
-            var utcNow = DateTime.UtcNow; // Get the current time in UTC
+            var utcNow = DateTime.UtcNow; 
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.RefreshToken == request.RefreshToken 
                                           && u.RefreshTokenExpiryTime > utcNow);

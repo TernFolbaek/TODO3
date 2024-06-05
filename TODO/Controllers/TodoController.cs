@@ -66,7 +66,7 @@ namespace TODO.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateTodoItem([FromBody] TodoItemRequest todoItemRequest)
         {
-            // Validate JWT token
+
             if (!TryValidateToken(out ClaimsPrincipal validatedPrincipal))
             {
                 _logger.LogInformation("invalid token");
@@ -75,7 +75,7 @@ namespace TODO.Controllers
             try
             {
                 _logger.LogInformation("valid token");
-                // Check if all provided usernames exist in the database
+
                 var users = await _context.Users
                     .Where(u => todoItemRequest.Usernames.Contains(u.Username))
                     .ToListAsync();
@@ -87,7 +87,7 @@ namespace TODO.Controllers
 
                 var todoItem = new TodoItem
                 {
-                    Id = todoItemRequest.Id, // Consider letting the database handle the Id generation unless there's a specific reason for setting it manually
+                    Id = todoItemRequest.Id,
                     IsComplete = todoItemRequest.IsComplete,
                     Description = todoItemRequest.Description,
                     DueDate = todoItemRequest.DueDate,
@@ -101,7 +101,7 @@ namespace TODO.Controllers
                     Description = todoItem.Description,
                     IsComplete = todoItem.IsComplete,
                     DueDate = todoItem.DueDate,
-                    UserTodos = todoItem.UserTodos.Select(ut => new { ut.User.Id, ut.User.Username }).ToList() // Simplify for serialization
+                    UserTodos = todoItem.UserTodos.Select(ut => new { ut.User.Id, ut.User.Username }).ToList() 
                 });
 
             }
@@ -175,9 +175,9 @@ public async Task<IActionResult> GetTodoItem(int id, [FromQuery] string timezone
             var utcOffset = ParseUtcOffset(json["utc_offset"].ToString());
 
             var todoItem = await _context.TodoItems
-                .Include(ti => ti.UserTodos) // Include UserTodos
-                    .ThenInclude(ut => ut.User) // Then include User data
-                .FirstOrDefaultAsync(ti => ti.Id == id); // Find the TodoItem by id
+                .Include(ti => ti.UserTodos) 
+                    .ThenInclude(ut => ut.User) 
+                .FirstOrDefaultAsync(ti => ti.Id == id); 
 
             if (todoItem == null)
             {
@@ -188,7 +188,7 @@ public async Task<IActionResult> GetTodoItem(int id, [FromQuery] string timezone
             {
                 var localDateTimeOffset = todoItem.DueDate.Value.ToOffset(utcOffset);
                 _logger.LogInformation($"Adjusted DueDate: {todoItem.DueDate}");
-                todoItem.DueDate = localDateTimeOffset; // Update the DueDate with the adjusted local time
+                todoItem.DueDate = localDateTimeOffset;
             }
 
             return Ok(new
@@ -201,7 +201,7 @@ public async Task<IActionResult> GetTodoItem(int id, [FromQuery] string timezone
                 {
                     UserId = ut.UserId,
                     Username = ut.User.Username
-                }).ToList() // Projecting necessary user data
+                }).ToList()
             });
         }
     }

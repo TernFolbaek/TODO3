@@ -26,12 +26,12 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(ut => ut.UserId);
 
         modelBuilder.Entity<UserTodo>()
-            .HasOne(ut => ut.TodoItem) // Change Todo to TodoItem
-            .WithMany(t => t.UserTodos) // Change t to ti (optional) for clarity
+            .HasOne(ut => ut.TodoItem) 
+            .WithMany(t => t.UserTodos) 
             .HasForeignKey(ut => ut.TodoId);
     }
 
     public DbSet<TodoItem> TodoItems { get; set; }
     public DbSet<User> Users { get; set; }
-    public DbSet<UserTodo> UserTodos { get; set; } // Add this DbSet for the join table
+    public DbSet<UserTodo> UserTodos { get; set; } 
 }
