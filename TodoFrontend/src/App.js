@@ -1,26 +1,29 @@
-import React, { useState } from 'react';
+// src/App.js
+import React from 'react';
 import { useAuth } from './auth/AuthContext';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import CreateTodo from './CreateTodo';
 import GetTodo from './GetTodo';
+import TodoList from './components/TodoList'; // Import the TodoList component
+import LogoutButton from './components/LogoutButton';
 
 const App = () => {
     const { authToken } = useAuth();
-    const [showLogin, setShowLogin] = useState(true); // Toggle between Login and Signup
 
     return (
         <div>
             {!authToken ? (
                 <div>
-                    <button onClick={() => setShowLogin(true)}>Login</button>
-                    <button onClick={() => setShowLogin(false)}>Sign Up</button>
-                    {showLogin ? <Login /> : <Signup />}
+                    <Login />
+                    <Signup />
                 </div>
             ) : (
                 <>
+                    <LogoutButton/>
                     <CreateTodo />
                     <GetTodo />
+                    <TodoList />
                 </>
             )}
         </div>

@@ -163,7 +163,7 @@ namespace TODO.Controllers
                 return Unauthorized("Invalid refresh token.");
             }
 
-            var newTokens = GenerateTokens(user); // Generate new access and refresh tokens
+            var newTokens = GenerateTokens(user); 
             _logger.LogInformation($"Generated new access token: {newTokens.AccessToken}");
             _logger.LogInformation($"Generated new refresh token: {newTokens.RefreshToken}");
             return Ok(new { accessToken = newTokens.AccessToken, refreshToken = newTokens.RefreshToken });

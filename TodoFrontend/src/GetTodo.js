@@ -24,10 +24,19 @@ function GetTodo() {
     };
 
     const fetchTodoItem = async (todoId, tz) => {
+        const token = localStorage.getItem('authToken')
         try {
-            const response = await fetch(`https://localhost:7060/api/todo/${todoId}?timezone=${tz}`);
+            const response = await fetch(`https://localhost:7060/api/todo/${todoId}?timezone=${tz}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                }
+            });
+
             if (!response.ok) throw new Error('Failed to fetch todo');
             const data = await response.json();
+            console.log("Fetched Todo:", data);
             setTodo(data);
         } catch (err) {
             setError(err.message);
@@ -42,9 +51,9 @@ function GetTodo() {
             return;
         }
         setError('');
-        const ipToUse = customIP; // Use the custom IP if provided
-        const timezone = await fetchTimezone(ipToUse); // Fetch timezone with the entered or detected IP
-        if (!timezone) return; // Exit if no timezone could be fetched
+        const ipToUse = customIP;
+        const timezone = await fetchTimezone(ipToUse);
+        if (!timezone) return;
         fetchTodoItem(id, timezone);
     };
 
@@ -58,10 +67,18 @@ function GetTodo() {
             {todo && (
                 <div>
                     <h3>Todo Details</h3>
-                    <p>ID: {todo.id}</p>
+                    <p>ID: {todo.todoId}</p>
                     <p>Description: {todo.description}</p>
                     <p>Status: {todo.isComplete ? 'Completed' : 'Pending'}</p>
-                    <p>Due Date: {todo.dueDate}</p> {/* Display the date as returned by the backend */}
+                    <p>Due Date: {todo.dueDate}</p>
+                    {todo.assignedUsers && todo.assignedUsers.length > 0 && (
+                        <div>
+                            <p>Assigned Users:</p>
+                            {todo.assignedUsers.map((user) => (
+                                <p key={user.userId}>{user.username}</p>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

@@ -10,18 +10,21 @@ const Signup = () => {
         event.preventDefault();
         const response = await fetch('https://localhost:7060/signup', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ username, password })
         });
         const data = await response.json();
         if (response.ok) {
-            login(data.token); // This will store the token and update the auth state
-            console.log("Received token:", data.token);
-
+            console.log("Received token:", data.accessToken); // Log received token
+            login(data.accessToken); // Assuming login function correctly handles the token storage
         } else {
+            console.error("Signup error:", data.error || "Unknown error during signup.");
             alert(data.error || 'Signup failed');
         }
     };
+
 
 
     return (
