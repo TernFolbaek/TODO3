@@ -100,8 +100,9 @@ namespace TODO.Controllers
                 return BadRequest(ModelState);
             }
 
+            var hashedPassword = HashPassword(model.Password);
             var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Username == model.Username && u.Password == model.Password);
+                .FirstOrDefaultAsync(u => u.Username == model.Username && u.Password == hashedPassword);
 
             if (user != null)
             {
@@ -112,6 +113,20 @@ namespace TODO.Controllers
             return BadRequest(new { error = "Invalid login attempt." });
         }
 
+
+        private string HashPassword(string password)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+                var builder = new StringBuilder();
+                foreach (var b in bytes)
+                {
+                    builder.Append(b.ToString("x2"));
+                }
+                return builder.ToString();
+            }
+        }
 
         [HttpPost("signup")]
         public async Task<IActionResult> Signup([FromBody] SignupViewModel model)
@@ -127,9 +142,14 @@ namespace TODO.Controllers
                 return BadRequest(new { error = "Username already exists." });
             }
 
-            var newUser = new User { Username = model.Username, Password = model.Password };
-            newUser.RefreshToken = GenerateRefreshToken();
-            newUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+            var hashedPassword = HashPassword(model.Password);
+            var newUser = new User 
+            { 
+                Username = model.Username, 
+                Password = hashedPassword,
+                RefreshToken = GenerateRefreshToken(),
+                RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7)
+            };
 
             _context.Users.Add(newUser);
             try
@@ -146,6 +166,7 @@ namespace TODO.Controllers
                 return StatusCode(500, "An error occurred while creating the user account.");
             }
         }
+
 
 
         
