@@ -4,15 +4,14 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
-using System.Reflection;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.OpenApi.Models;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using System.Text.Json.Serialization;
+using TODO.Hubs;
+using TODO.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,12 +20,9 @@ builder.Services.AddHangfire(configuration => configuration
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("Postgres"), new PostgreSqlStorageOptions
-    {
-
-    }));
-
-
+    .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("Postgres")));
+builder.Services.AddHangfireServer();
+builder.Services.AddScoped<TodoService>();
 
 builder.Services.AddHttpClient();
 builder.Services.AddControllers();
@@ -40,12 +36,16 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowWebApp",
         policy => policy.WithOrigins("http://localhost:3000")
             .AllowAnyMethod()
-            .AllowAnyHeader());
+            .AllowAnyHeader()
+            .AllowCredentials());  
 });
 
 // Configure database context
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Add Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -94,27 +94,25 @@ if (app.Environment.IsDevelopment())
     app.UseHangfireDashboard();
 }
 
-
-
 app.UseStaticFiles();
-
 app.UseCors("AllowWebApp");
-
 app.UseRouting();
-
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseSession();
-
-app.MapControllers();
-
-await using (var scope = app.Services.CreateAsyncScope())
+app.UseEndpoints(endpoints =>
 {
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await db.Database.MigrateAsync(); // Apply migrations at startup
-}
+    endpoints.MapControllers();
+    endpoints.MapHub<TodoHub>("/todoHub");
+});
 
-app.Run();
+// Schedule Hangfire jobs
+app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TodoService>(
+    "CheckOverdueTodos",
+    service => service.CheckAndUpdateOverdueTodos(),
+    "*/2 * * * *"
+);
+
+await app.RunAsync();
 
 public partial class Program;

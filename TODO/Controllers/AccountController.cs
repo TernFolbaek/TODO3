@@ -57,7 +57,7 @@ namespace TODO.Controllers
                     issuer: "YourIssuer",
                     audience: "YourAudience",
                     claims: claims,
-                    expires: DateTime.UtcNow.AddMinutes(30),
+                    expires: DateTime.UtcNow.AddHours(3),
                     signingCredentials: credentials
                 );
 
@@ -110,9 +110,9 @@ namespace TODO.Controllers
                 return Ok(new { accessToken, refreshToken, message = "Login successful" });
             }
 
+            _logger.LogWarning($"Login failed for user {model.Username}: Invalid username or password");
             return BadRequest(new { error = "Invalid login attempt." });
         }
-
 
         private string HashPassword(string password)
         {
@@ -156,8 +156,6 @@ namespace TODO.Controllers
             {
                 await _context.SaveChangesAsync();
                 var (accessToken, refreshToken) = GenerateTokens(newUser);
-                _logger.LogInformation($"Generated Access Token: {accessToken}"); 
-                _logger.LogInformation($"Generated Refresh Token: {refreshToken}"); 
                 return Ok(new { accessToken, refreshToken, message = "Signup successful" });
             }
             catch (Exception ex)
