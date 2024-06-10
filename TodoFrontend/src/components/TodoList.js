@@ -6,8 +6,14 @@ import 'react-datepicker/dist/react-datepicker.css';
 const TodoList = () => {
     const [todos, setTodos] = useState([]);
     const [hubConnection, setHubConnection] = useState(null);
+    const [reconnectAttempts, setReconnectAttempts] = useState(0);
 
     const setupSignalRConnection = async (token) => {
+        if (reconnectAttempts > 5) {
+            console.error("Reconnection attempts exceeded. Stopping reconnection.");
+            return;
+        }
+
         const connection = new HubConnectionBuilder()
             .withUrl('https://localhost:7060/todoHub', {
                 accessTokenFactory: () => token
@@ -22,11 +28,13 @@ const TodoList = () => {
 
         connection.onreconnected((connectionId) => {
             console.log(`Connection reestablished. Connected with connectionId "${connectionId}".`);
+            setReconnectAttempts(0); // Reset reconnect attempts on successful reconnection
         });
 
         connection.onclose((error) => {
             console.error(`Connection closed. Error: ${error}`);
             console.error('Attempting to manually reconnect...');
+            setReconnectAttempts(prev => prev + 1);
             setTimeout(() => setupSignalRConnection(localStorage.getItem('authToken')), 5000); // Attempt to reconnect in 5 seconds
         });
 
@@ -52,8 +60,8 @@ const TodoList = () => {
     };
 
     useEffect(() => {
-        if (!hubConnection) {
-            const token = localStorage.getItem('authToken');
+        const token = localStorage.getItem('authToken');
+        if (!hubConnection || hubConnection.state === HubConnectionState.Disconnected) {
             setupSignalRConnection(token);
         }
 
@@ -61,6 +69,7 @@ const TodoList = () => {
             hubConnection?.stop();
         };
     }, [hubConnection]);
+
 
     const handleDueDateChange = async (todoId, date) => {
         try {

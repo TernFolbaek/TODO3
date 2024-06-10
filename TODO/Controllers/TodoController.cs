@@ -106,45 +106,7 @@ namespace TODO.Controllers
             }
         }
 
-        
-        private bool TryValidateToken(out ClaimsPrincipal validatedPrincipal)
-        {
-            validatedPrincipal = null;
 
-            var authorizationHeader = Request.Headers["Authorization"];
-            if (authorizationHeader.FirstOrDefault() == null || !authorizationHeader.FirstOrDefault().StartsWith("Bearer "))
-            {
-                return false;
-            }
-
-            var tokenString = authorizationHeader.FirstOrDefault().Substring("Bearer ".Length);
-
-            try
-            {
-                var tokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("JWTSecureKey").Value)),
-                    
-                    ValidateIssuer = true,
-                    ValidIssuer = "YourIssuer",
-                    ValidateAudience = true,
-                    ValidAudience = "YourAudience",
-                    ValidateLifetime = true
-                };
-
-                var tokenHandler = new JwtSecurityTokenHandler();
-                validatedPrincipal = tokenHandler.ValidateToken(tokenString, tokenValidationParameters, out SecurityToken validatedToken);
-                return true;
-            }
-            catch (SecurityTokenException e)
-            {
-                return false;
-            }
-        } 
-        
-        
-        
         [HttpGet("{id}")]
     public async Task<IActionResult> GetTodoItem(int id, [FromQuery] string timezone = "UTC")
     {
@@ -194,6 +156,7 @@ namespace TODO.Controllers
             });
         }
     }
+    
     catch (Exception ex)
     {
         _logger.LogError($"An error occurred: {ex.Message}");

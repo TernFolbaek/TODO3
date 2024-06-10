@@ -5,11 +5,11 @@ import { useAuth } from '../auth/AuthContext';
 const Login = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const { login } = useAuth();  // Use the login function from AuthContext
+    const { login } = useAuth();
 
     const handleSubmit = async (event) => {
         event.preventDefault();
-        console.log("Attempting login for:", username); // Log username attempting to login
+        console.log("Attempting login for:", username);
 
         try {
             const response = await fetch('https://localhost:7060/login', {
@@ -29,10 +29,10 @@ const Login = () => {
             }
 
             const data = await response.json();
-            console.log("Login successful, received data:", data); // Log success and token data
+            console.log("Login successful, received data:", data);
 
             if (data.accessToken && data.refreshToken) {
-                login(data.accessToken, data.refreshToken);  // Store both tokens in local storage via AuthContext
+                login(data.accessToken, data.refreshToken);
             } else {
                 console.error("Received data is missing the accessToken or refreshToken:", data);
                 alert("Login failed due to missing tokens.");

@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }) => {
             const data = await response.json();
             if (response.ok) {
                 console.log('Received new tokens:', data);
-                login(data.accessToken, data.refreshToken); // Use the new refreshToken if the server sends a new one
+                login(data.accessToken, data.refreshToken);
             } else {
                 console.error('Failed to refresh token:', data);
                 logout();
