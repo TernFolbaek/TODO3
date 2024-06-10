@@ -7,7 +7,6 @@ const TodoList = () => {
     const [todos, setTodos] = useState([]);
     const hubConnectionRef = useRef(null); // Using useRef to persist the hub connection
 
-    // Fetch Todos on component mount
     useEffect(() => {
         const fetchTodos = async () => {
             const token = localStorage.getItem('authToken');
@@ -35,9 +34,7 @@ const TodoList = () => {
             return;
         }
 
-        if (hubConnectionRef.current && hubConnectionRef.current.state !== HubConnectionState.Disconnected) {
-            return;
-        }
+        if (hubConnectionRef.current) return; // Ensures only one connection instance
 
         const connection = new HubConnectionBuilder()
             .withUrl('https://localhost:7060/todoHub', { accessTokenFactory: () => token })
@@ -79,7 +76,8 @@ const TodoList = () => {
         };
     }, []);
 
-    const handleDueDateChange = async (todoId, date) => {
+
+        const handleDueDateChange = async (todoId, date) => {
         const token = localStorage.getItem('authToken');
         const response = await fetch(`https://localhost:7060/api/todo/updateDueDate/${todoId}`, {
             method: 'POST',

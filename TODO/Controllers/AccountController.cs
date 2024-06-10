@@ -34,7 +34,6 @@ namespace TODO.Controllers
             _context = context;
             _logger = logger;
             _configuration = configuration; 
-
         }
 
 
@@ -57,7 +56,7 @@ namespace TODO.Controllers
                     issuer: "YourIssuer",
                     audience: "YourAudience",
                     claims: claims,
-                    expires: DateTime.UtcNow.AddHours(3),
+                    expires: DateTime.UtcNow.AddHours(10),
                     signingCredentials: credentials
                 );
 

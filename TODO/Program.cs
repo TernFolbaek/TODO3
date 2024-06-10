@@ -109,8 +109,8 @@ app.UseEndpoints(endpoints =>
 // Schedule Hangfire jobs
 app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TodoService>(
     "CheckOverdueTodos",
-    service => service.CheckAndUpdateOverdueTodos(),
-    "*/2 * * * *"
+    service => service.CheckAndUpdateTodoStatuses(),
+    "*/1 * * * *"
 );
 
 await app.RunAsync();
