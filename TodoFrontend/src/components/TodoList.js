@@ -1,42 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { HubConnectionBuilder, LogLevel, HubConnectionState } from '@microsoft/signalr';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
 const TodoList = () => {
     const [todos, setTodos] = useState([]);
-    const [hubConnection, setHubConnection] = useState(null);
-    const [reconnectAttempts, setReconnectAttempts] = useState(0);
+    const hubConnectionRef = useRef(null); // Using useRef to persist the hub connection
 
-    const setupSignalRConnection = async (token) => {
-        if (reconnectAttempts > 5) {
-            console.error("Reconnection attempts exceeded. Stopping reconnection.");
+    // Fetch Todos on component mount
+    useEffect(() => {
+        const fetchTodos = async () => {
+            const token = localStorage.getItem('authToken');
+            const response = await fetch('https://localhost:7060/api/todo', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (!response.ok) {
+                console.error(`Failed to fetch todos: ${response.statusText}`);
+                return;
+            }
+            const data = await response.json();
+            setTodos(data);
+        };
+
+        fetchTodos();
+    }, []);
+
+    useEffect(() => {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            console.error("No auth token available.");
+            return;
+        }
+
+        if (hubConnectionRef.current && hubConnectionRef.current.state !== HubConnectionState.Disconnected) {
             return;
         }
 
         const connection = new HubConnectionBuilder()
-            .withUrl('https://localhost:7060/todoHub', {
-                accessTokenFactory: () => token
-            })
+            .withUrl('https://localhost:7060/todoHub', { accessTokenFactory: () => token })
             .configureLogging(LogLevel.Information)
-            .withAutomaticReconnect([0, 2000, 10000, 30000]) // Will try reconnecting at these intervals.
+            .withAutomaticReconnect()
             .build();
-
-        connection.onreconnecting((error) => {
-            console.error(`Connection lost due to error "${error}". Reconnecting.`);
-        });
-
-        connection.onreconnected((connectionId) => {
-            console.log(`Connection reestablished. Connected with connectionId "${connectionId}".`);
-            setReconnectAttempts(0); // Reset reconnect attempts on successful reconnection
-        });
-
-        connection.onclose((error) => {
-            console.error(`Connection closed. Error: ${error}`);
-            console.error('Attempting to manually reconnect...');
-            setReconnectAttempts(prev => prev + 1);
-            setTimeout(() => setupSignalRConnection(localStorage.getItem('authToken')), 5000); // Attempt to reconnect in 5 seconds
-        });
 
         connection.on('ReceiveTodoStatusUpdate', (todoId, status) => {
             setTodos(currentTodos => currentTodos.map(todo =>
@@ -50,68 +57,43 @@ const TodoList = () => {
             ));
         });
 
-        try {
-            await connection.start();
-            console.log('SignalR Connected.');
-            setHubConnection(connection);
-        } catch (err) {
-            console.error('Error establishing SignalR connection:', err);
-        }
-    };
+        connection.onclose(() => {
+            console.log('SignalR connection closed');
+            hubConnectionRef.current = null;
+        });
 
-    useEffect(() => {
-        const token = localStorage.getItem('authToken');
-        if (!hubConnection || hubConnection.state === HubConnectionState.Disconnected) {
-            setupSignalRConnection(token);
-        }
+        const startConnection = async () => {
+            try {
+                await connection.start();
+                console.log('SignalR Connected.');
+                hubConnectionRef.current = connection;
+            } catch (err) {
+                console.error('Error establishing SignalR connection:', err);
+            }
+        };
+
+        startConnection();
 
         return () => {
-            hubConnection?.stop();
+            connection.stop();
         };
-    }, [hubConnection]);
-
+    }, []);
 
     const handleDueDateChange = async (todoId, date) => {
-        try {
-            const response = await fetch(`https://localhost:7060/api/todo/updateDueDate/${todoId}`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(date)
-            });
-            if (!response.ok) {
-                throw new Error(`Failed to update due date: ${response.statusText}`);
-            }
-        } catch (error) {
-            console.error("Error updating due date: ", error);
-            alert("Failed to update due date.");
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`https://localhost:7060/api/todo/updateDueDate/${todoId}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(date)
+        });
+
+        if (!response.ok) {
+            console.error(`Failed to update due date: ${response.statusText}`);
         }
     };
-
-    useEffect(() => {
-        const fetchTodos = async () => {
-            try {
-                const response = await fetch('https://localhost:7060/api/todo', {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch todos: ${response.statusText}`);
-                }
-                const data = await response.json();
-                setTodos(data);
-            } catch (error) {
-                console.error("Error fetching data: ", error);
-                alert("Error fetching todos.");
-            }
-        };
-
-        fetchTodos();
-    }, []);
 
     const toggleTodoCompletion = async (todoId, isComplete) => {
         try {
@@ -121,14 +103,14 @@ const TodoList = () => {
                     'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ isComplete: !isComplete })
+                body: JSON.stringify({isComplete: !isComplete})
             });
             if (!response.ok) {
                 throw new Error(`Failed to toggle todo completion: ${response.statusText}`);
             }
             const updatedTodo = await response.json();
             setTodos(currentTodos => currentTodos.map(todo =>
-                todo.id === updatedTodo.id ? { ...todo, ...updatedTodo } : todo
+                todo.id === updatedTodo.id ? {...todo, ...updatedTodo} : todo
             ));
         } catch (error) {
             console.error("Error toggling todo completion: ", error);
@@ -145,7 +127,7 @@ const TodoList = () => {
                         <li key={todo.id}>
                             <strong>Description:</strong> {todo.description} <br/>
                             <strong>Status:</strong> {todo.status} <br/>
-                            <strong>is Complete:</strong> {todo.isComplete ? 'completed' : 'not completed'} <br/>
+                            <strong>Is Complete:</strong> {todo.isComplete ? 'Completed' : 'Not Completed'} <br/>
                             <strong>Due Date:</strong>
                             <DatePicker
                                 selected={todo.dueDate ? new Date(todo.dueDate) : null}
@@ -168,4 +150,8 @@ const TodoList = () => {
 };
 
 export default TodoList;
+
+
+
+
 
