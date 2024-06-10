@@ -110,7 +110,8 @@ app.UseEndpoints(endpoints =>
 app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TodoService>(
     "CheckOverdueTodos",
     service => service.CheckAndUpdateTodoStatuses(),
-    "*/1 * * * *"
+    "*/15 * * * * *"
+
 );
 
 await app.RunAsync();

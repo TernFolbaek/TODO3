@@ -265,18 +265,16 @@ namespace TODO.Controllers
 
             todoItem.DueDate = newDueDate;
 
-            // Reset status if due date is in the future
+            _context.TodoItems.Update(todoItem);
+            await _context.SaveChangesAsync();
+
+
+            await _hubContext.Clients.All.SendAsync("ReceiveTodoDueDateUpdate", todoItem.Id, todoItem.DueDate);
+
             if (todoItem.DueDate > DateTime.UtcNow && todoItem.Status == "Overdue")
             {
                 todoItem.Status = "Pending";
             }
-
-            _context.TodoItems.Update(todoItem);
-            await _context.SaveChangesAsync();
-
-            // Notify all clients about the due date change
-            await _hubContext.Clients.All.SendAsync("ReceiveTodoDueDateUpdate", todoItem.Id, todoItem.DueDate);
-
             return Ok(new { todoItem.Id, todoItem.DueDate });
         }
 

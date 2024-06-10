@@ -76,7 +76,6 @@ const TodoList = () => {
         };
     }, []);
 
-
         const handleDueDateChange = async (todoId, date) => {
         const token = localStorage.getItem('authToken');
         const response = await fetch(`https://localhost:7060/api/todo/updateDueDate/${todoId}`, {

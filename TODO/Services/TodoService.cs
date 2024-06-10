@@ -22,24 +22,36 @@ namespace TODO.Services
 
         public async Task CheckAndUpdateTodoStatuses()
         {
+            _logger.LogInformation("Starting to check and update todo statuses.");
             using var transaction = _context.Database.BeginTransaction();
             try
             {
-                // Ensure correct handling of DateTime comparisons by specifying UtcNow explicitly
-                var currentUtcNow = DateTimeOffset.UtcNow;
+                var currentTimeUtc = DateTimeOffset.UtcNow;
+
+                var todoItems = _context.TodoItems.ToList();
+                _logger.LogInformation(
+                    "******************************************************************************************************************");
+                foreach (var item in todoItems)
+                {
+                    _logger.LogInformation($"Todo Item: ID={item.Id}, Description={item.Description}, Status={item.Status}, Due Date={item.DueDate}");
+                }
+                _logger.LogInformation("------------------------------------------------------------------------------------------------------------------");
+
                 var todosToUpdate = _context.TodoItems
-                    .Where(t => (t.DueDate.HasValue && t.DueDate.Value < currentUtcNow && t.Status != "Overdue") || 
-                                (t.DueDate.HasValue && t.DueDate.Value >= currentUtcNow && t.Status == "Overdue"))
+                    .Where(t => (t.DueDate < currentTimeUtc && t.Status != "Overdue") ||
+                                (t.DueDate >= currentTimeUtc && t.Status == "Overdue"))
                     .ToList();
+
+                _logger.LogInformation($"Evaluated at UTC time: {currentTimeUtc}. Found {todosToUpdate.Count} todos to update.");
 
                 if (todosToUpdate.Any())
                 {
                     foreach (var todo in todosToUpdate)
                     {
-                        // Define new status based on current due date comparison to UTC now
-                        string newStatus = todo.DueDate.Value < currentUtcNow ? "Overdue" : "Pending";
+                        string newStatus = todo.DueDate < currentTimeUtc ? "Overdue" : "Pending";
                         if (todo.Status != newStatus)
                         {
+                            _logger.LogInformation($"Changing status for Todo ID {todo.Id} from {todo.Status} to {newStatus}.");
                             todo.Status = newStatus;
                             _context.TodoItems.Update(todo);
                             await _hubContext.Clients.All.SendAsync("ReceiveTodoStatusUpdate", todo.Id, todo.Status);
@@ -48,7 +60,7 @@ namespace TODO.Services
 
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
-                    _logger.LogInformation($"Updated and notified {todosToUpdate.Count} todos.");
+                    _logger.LogInformation($"Successfully updated and notified {todosToUpdate.Count} todos.");
                 }
                 else
                 {
@@ -59,7 +71,6 @@ namespace TODO.Services
             {
                 await transaction.RollbackAsync();
                 _logger.LogError($"Error processing todo status updates: {ex.Message}", ex);
-                throw;
             }
         }
     }
