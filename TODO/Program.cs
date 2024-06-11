@@ -4,15 +4,15 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
-using System.Reflection;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.OpenApi.Models;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using System.Text.Json;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using System.Text.Json.Serialization;
+using TODO.Hubs;
+using TODO.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,12 +21,9 @@ builder.Services.AddHangfire(configuration => configuration
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("Postgres"), new PostgreSqlStorageOptions
-    {
-
-    }));
-
-
+    .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("Postgres")));
+builder.Services.AddHangfireServer();
+builder.Services.AddScoped<TodoService>();
 
 builder.Services.AddHttpClient();
 builder.Services.AddControllers();
@@ -38,14 +35,19 @@ builder.Logging.AddDebug();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowWebApp",
-        policy => policy.WithOrigins("http://localhost:3000")
+        policy => policy
+            .WithOrigins("http://localhost:3000")
             .AllowAnyMethod()
-            .AllowAnyHeader());
+            .AllowAnyHeader()
+            .AllowCredentials());
 });
 
 // Configure database context
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Add Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -54,32 +56,43 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "TODO API", Version = "v1" });
 });
 
-// Add session configuration
-builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-});
-
 // Configure JWT Authentication
 var secretKey = builder.Configuration["JWTSecureKey"];
 var key = Encoding.ASCII.GetBytes(secretKey);
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(options =>
+})
+.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
 {
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = 401;
+        return Task.CompletedTask;
+    };
+})
+.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+{
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
         ValidateIssuer = false,
         ValidateAudience = false
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            context.Token = context.Request.Cookies["AccessToken"];
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -94,27 +107,18 @@ if (app.Environment.IsDevelopment())
     app.UseHangfireDashboard();
 }
 
-
-
 app.UseStaticFiles();
-
 app.UseCors("AllowWebApp");
-
 app.UseRouting();
-
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseSession();
-
-app.MapControllers();
-
-await using (var scope = app.Services.CreateAsyncScope())
+app.UseEndpoints(endpoints =>
 {
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await db.Database.MigrateAsync(); // Apply migrations at startup
-}
+    endpoints.MapControllers();
+    endpoints.MapHub<TodoHub>("/todoHub");
+});
 
-app.Run();
+await app.RunAsync();
 
 public partial class Program;

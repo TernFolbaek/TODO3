@@ -14,7 +14,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization; 
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.IdentityModel.Tokens;
+using TODO.Hubs;
 
 
 namespace TODO.Controllers
@@ -29,11 +31,13 @@ namespace TODO.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<TodoController> _logger;
         private readonly IConfiguration _configuration;
+        private readonly IHubContext<TodoHub> _hubContext;
 
-        public TodoController(ApplicationDbContext context, IHttpClientFactory httpClientFactory, ILogger<TodoController> logger, IConfiguration configuration)
+        public TodoController(ApplicationDbContext context, IHttpClientFactory httpClientFactory, ILogger<TodoController> logger, IConfiguration configuration, IHubContext<TodoHub> hubContext)
         {
             _logger = logger;
             _context = context;
+            _hubContext = hubContext;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
         }
@@ -42,12 +46,6 @@ namespace TODO.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAllTodoItems()
         {
-            if (!TryValidateToken(out ClaimsPrincipal validatedPrincipal))
-            {
-                _logger.LogInformation("invalid token");
-                return Unauthorized("Invalid JWT token.");
-            }
-
             try
             {
                 var todoItems = await _context.TodoItems.ToListAsync();
@@ -66,16 +64,8 @@ namespace TODO.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateTodoItem([FromBody] TodoItemRequest todoItemRequest)
         {
-
-            if (!TryValidateToken(out ClaimsPrincipal validatedPrincipal))
-            {
-                _logger.LogInformation("invalid token");
-                return Unauthorized("Invalid JWT token.");
-            }
             try
             {
-                _logger.LogInformation("valid token");
-
                 var users = await _context.Users
                     .Where(u => todoItemRequest.Usernames.Contains(u.Username))
                     .ToListAsync();
@@ -91,7 +81,9 @@ namespace TODO.Controllers
                     IsComplete = todoItemRequest.IsComplete,
                     Description = todoItemRequest.Description,
                     DueDate = todoItemRequest.DueDate,
-                    UserTodos = users.Select(user => new UserTodo { User = user }).ToList()
+                    UserTodos = users.Select(user => new UserTodo { User = user }).ToList(),
+                    Status = todoItemRequest.IsComplete ? "Completed" : "Pending",
+                    DateCompleted = todoItemRequest.IsComplete ? DateTime.UtcNow : null
                 };
 
                 _context.TodoItems.Add(todoItem);
@@ -101,6 +93,8 @@ namespace TODO.Controllers
                     Description = todoItem.Description,
                     IsComplete = todoItem.IsComplete,
                     DueDate = todoItem.DueDate,
+                    Status = todoItem.Status,
+                    DateCompleted = todoItem.DateCompleted,
                     UserTodos = todoItem.UserTodos.Select(ut => new { ut.User.Id, ut.User.Username }).ToList() 
                 });
 
@@ -110,56 +104,13 @@ namespace TODO.Controllers
                 _logger.LogError($"Error creating TODO item: {ex.Message}", ex);
                 return StatusCode(500, "Internal Server Error: " + ex.Message);
             }
-            
-        }
-        
-        private bool TryValidateToken(out ClaimsPrincipal validatedPrincipal)
-        {
-            validatedPrincipal = null;
-
-            var authorizationHeader = Request.Headers["Authorization"];
-            if (authorizationHeader.FirstOrDefault() == null || !authorizationHeader.FirstOrDefault().StartsWith("Bearer "))
-            {
-                return false;
-            }
-
-            var tokenString = authorizationHeader.FirstOrDefault().Substring("Bearer ".Length);
-
-            try
-            {
-                var tokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("JWTSecureKey").Value)),
-                    
-                    ValidateIssuer = true,
-                    ValidIssuer = "YourIssuer",
-                    ValidateAudience = true,
-                    ValidAudience = "YourAudience",
-                    ValidateLifetime = true
-                };
-
-                var tokenHandler = new JwtSecurityTokenHandler();
-                validatedPrincipal = tokenHandler.ValidateToken(tokenString, tokenValidationParameters, out SecurityToken validatedToken);
-                return true;
-            }
-            catch (SecurityTokenException e)
-            {
-                return false;
-            }
         }
 
 
-       [HttpGet("{id}")]
-public async Task<IActionResult> GetTodoItem(int id, [FromQuery] string timezone = "UTC")
-{
-    // Validate JWT token
-    if (!TryValidateToken(out ClaimsPrincipal validatedPrincipal))
+        [HttpGet("{id}")]
+    public async Task<IActionResult> GetTodoItem(int id, [FromQuery] string timezone = "UTC")
     {
-        _logger.LogInformation("invalid token");
-        return Unauthorized("Invalid JWT token.");
-    }
-
+    // Validate JWT token
     try
     {
         using (var client = _httpClientFactory.CreateClient())
@@ -205,6 +156,7 @@ public async Task<IActionResult> GetTodoItem(int id, [FromQuery] string timezone
             });
         }
     }
+    
     catch (Exception ex)
     {
         _logger.LogError($"An error occurred: {ex.Message}");
@@ -212,45 +164,78 @@ public async Task<IActionResult> GetTodoItem(int id, [FromQuery] string timezone
     }
 }
 
-
-
-        private TimeSpan ParseUtcOffset(string utcOffset)
+    private TimeSpan ParseUtcOffset(string utcOffset)
+    {
+        if (utcOffset.StartsWith("+") || utcOffset.StartsWith("-"))
         {
-            if (utcOffset.StartsWith("+") || utcOffset.StartsWith("-"))
+            utcOffset = utcOffset.StartsWith("+") ? utcOffset.Substring(1) : utcOffset;
+            if (TimeSpan.TryParse(utcOffset, out TimeSpan result))
             {
-                utcOffset = utcOffset.StartsWith("+") ? utcOffset.Substring(1) : utcOffset;
-                if (TimeSpan.TryParse(utcOffset, out TimeSpan result))
-                {
-                    return result;
-                }
-                else
-                {
-                    _logger.LogError($"Failed to parse UTC offset: {utcOffset}");
-                    throw new FormatException("Invalid time span format");
-                }
+                return result;
             }
             else
             {
-                _logger.LogError($"Unexpected UTC offset format: {utcOffset}");
-                throw new FormatException("Unexpected time span format, expected a leading '+' or '-'");
+                _logger.LogError($"Failed to parse UTC offset: {utcOffset}");
+                throw new FormatException("Invalid time span format");
             }
         }
+        else
+        {
+            _logger.LogError($"Unexpected UTC offset format: {utcOffset}");
+            throw new FormatException("Unexpected time span format, expected a leading '+' or '-'");
+        }
+    }
+    public class TodoCompletionRequest
+    {
+        public bool IsComplete { get; set; }
+    }
 
 
+    // POST: api/todo/toggleCompletion/{id}
+    [HttpPost("toggleCompletion/{id}")]
+    public async Task<IActionResult> ToggleTodoCompletion(int id, [FromBody] TodoCompletionRequest request)
+    {
+        var todoItem = await _context.TodoItems.FindAsync(id);
+        if (todoItem == null)
+        {
+            return NotFound();
+        }
 
-        
-    
-        
-        // DELETE: api/todo/{id}
+        todoItem.IsComplete = request.IsComplete;
+        if (request.IsComplete)
+        {
+            todoItem.Status = "Completed";
+            todoItem.DateCompleted = DateTime.UtcNow;
+        }
+        else
+        {
+            todoItem.Status = "Pending";
+            todoItem.DateCompleted = null;
+        }
+
+        _context.TodoItems.Update(todoItem);
+        await _context.SaveChangesAsync();
+
+        // Send updates via SignalR
+        await _hubContext.Clients.All.SendAsync("ReceiveTodoStatusUpdate", todoItem.Id, todoItem.Status);
+        await _hubContext.Clients.All.SendAsync("ReceiveTodoCompletionDateUpdate", todoItem.Id, todoItem.DateCompleted);
+
+        _logger.LogInformation("Todo item status toggled: {TodoId}", todoItem.Id);
+
+        return Ok(new
+        {
+            TodoId = todoItem.Id,
+            IsComplete = todoItem.IsComplete,
+            Status = todoItem.Status,
+            DateCompleted = todoItem.DateCompleted
+        });
+    }
+
+
+    // DELETE: api/todo/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTodoItem(int id)
         {
-            if (!TryValidateToken(out ClaimsPrincipal validatedPrincipal))
-            {
-                _logger.LogInformation("invalid token");
-                return Unauthorized("Invalid JWT token.");
-            }
-
             try
             {
                 var todoItem = await _context.TodoItems.FindAsync(id);
@@ -267,20 +252,38 @@ public async Task<IActionResult> GetTodoItem(int id, [FromQuery] string timezone
                 _logger.LogError($"An error occurred in deletion: {ex.Message}");
                 return StatusCode(500, "Internal Server Error: " + ex.Message);
             }
-      
-            
         }
+        
+        [HttpPost("updateDueDate/{id}")]
+        public async Task<IActionResult> UpdateDueDate(int id, [FromBody] DateTime newDueDate)
+        {
+            var todoItem = await _context.TodoItems.FindAsync(id);
+            if (todoItem == null)
+            {
+                return NotFound();
+            }
+
+            todoItem.DueDate = newDueDate;
+
+            _context.TodoItems.Update(todoItem);
+            await _context.SaveChangesAsync();
+
+
+            await _hubContext.Clients.All.SendAsync("ReceiveTodoDueDateUpdate", todoItem.Id, todoItem.DueDate);
+
+            if (todoItem.DueDate > DateTime.UtcNow && todoItem.Status == "Overdue")
+            {
+                todoItem.Status = "Pending";
+            }
+            return Ok(new { todoItem.Id, todoItem.DueDate });
+        }
+
+
 
         // PUT: api/todo/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateTodoItem(int id, [FromBody] TodoItem todoItemUpdate)
         {
-            if (!TryValidateToken(out ClaimsPrincipal validatedPrincipal))
-            {
-                _logger.LogInformation("invalid token");
-                return Unauthorized("Invalid JWT token.");
-            }
-
             try
             {
                 if (id != todoItemUpdate.Id)

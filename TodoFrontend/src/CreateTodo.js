@@ -7,7 +7,6 @@ function CreateTodo() {
     const [users, setUsers] = useState([]);
     const [selectedUserIds, setSelectedUserIds] = useState([]);
 
-    // Fetch users on component mount
     useEffect(() => {
         const fetchUsers = async () => {
             try {
@@ -17,10 +16,10 @@ function CreateTodo() {
                     console.log("Fetched Users:", data); // Log the data to verify it
                     setUsers(data);
                 } else {
-                    console.error('Failed to fetch users, Status:', response.status); // Log error status
+                    console.error('Failed to fetch users, Status:', response.status);
                 }
             } catch (error) {
-                console.error('Error fetching users:', error); // Log any fetching errors
+                console.error('Error fetching users:', error);
             }
         };
         fetchUsers();
@@ -38,7 +37,7 @@ function CreateTodo() {
         const todo = {
             description,
             isComplete,
-            dueDate: dueDate ? new Date(dueDate).toISOString() : null, // Handle the case where no date is provided
+            dueDate: dueDate ? new Date(dueDate).toISOString() : null,
             usernames: selectedUserIds.map(id => users.find(user => user.id === id)?.username)
         };
         const response = await fetch('https://localhost:7060/api/todo', {

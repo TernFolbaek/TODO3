@@ -7,7 +7,7 @@ public static class SecurityKeyHelper
     {
         using (var random = new RNGCryptoServiceProvider())
         {
-            var keyBytes = new byte[32]; // 32 bytes = 256 bits
+            var keyBytes = new byte[32]; 
             random.GetBytes(keyBytes);
             return Convert.ToBase64String(keyBytes);
         }

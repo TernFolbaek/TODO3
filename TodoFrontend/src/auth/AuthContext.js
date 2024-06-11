@@ -6,6 +6,16 @@ export const AuthProvider = ({ children }) => {
     const [authToken, setAuthToken] = useState(localStorage.getItem('authToken'));
     const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
 
+    useEffect(() => {
+        // Setup all fetch requests to use the authToken if available
+        const defaultHeaders = {
+            'Authorization': authToken ? `Bearer ${authToken}` : '',
+            'Content-Type': 'application/json'
+        };
+
+        fetch.defaults = { headers: defaultHeaders };
+    }, [authToken]);
+
     const login = (authToken, refreshToken) => {
         console.log('Storing tokens:', { authToken, refreshToken });
         localStorage.setItem('authToken', authToken);
@@ -22,7 +32,6 @@ export const AuthProvider = ({ children }) => {
         setRefreshToken(null);
     };
 
-    // Add a method to refresh the access token using the refresh token
     const refreshAccessToken = async () => {
         try {
             console.log('Attempting to refresh access token with refresh token:', refreshToken);
@@ -34,7 +43,7 @@ export const AuthProvider = ({ children }) => {
             const data = await response.json();
             if (response.ok) {
                 console.log('Received new tokens:', data);
-                login(data.accessToken, data.refreshToken); // Use the new refreshToken if the server sends a new one
+                login(data.accessToken, data.refreshToken);
             } else {
                 console.error('Failed to refresh token:', data);
                 logout();
@@ -45,23 +54,20 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-
-    // Auto-refresh token on expiry
     useEffect(() => {
         const interval = setInterval(() => {
             if (authToken) {
                 refreshAccessToken();
             }
-        }, 1000 * 60 * 30); //every 30 minutes WUHUUUU
+        }, 1000 * 60 * 28);
         return () => clearInterval(interval);
     }, [authToken]);
 
     return (
-        <AuthContext.Provider value={{ authToken, login, logout, refreshAccessToken }}>
+        <AuthContext.Provider value={{ authToken, refreshToken, login, logout, refreshAccessToken }}>
             {children}
         </AuthContext.Provider>
     );
 };
-
 
 export const useAuth = () => useContext(AuthContext);
