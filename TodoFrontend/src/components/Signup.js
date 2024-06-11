@@ -13,17 +13,22 @@ const Signup = () => {
             headers: {
                 'Content-Type': 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify({ username, password })
         });
-        const data = await response.json();
-        if (response.ok) {
-            console.log("Received token:", data.accessToken); // Log received token
-            login(data.accessToken); // Assuming login function correctly handles the token storage
-        } else {
-            console.error("Signup error:", data.error || "Unknown error during signup.");
-            alert(data.error || 'Signup failed');
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error("Signup error:", errorData.error || "Unknown error during signup.");
+            alert(errorData.error || 'Signup failed');
+            return;
         }
+
+        const data = await response.json();
+        console.log("Signup successful, received data:", data);
+        login(data.accessToken, data.refreshToken);
     };
+
 
 
 

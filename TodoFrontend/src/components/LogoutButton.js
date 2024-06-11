@@ -1,19 +1,21 @@
-import React, {useState} from "react";
+import React from "react";
+import { useAuth } from '../auth/AuthContext';
 
 const LogoutButton = () => {
-
-    const handleSubmit = (e) => {
-        alert("Logout clicked")
+    const {logout} = useAuth();
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        localStorage.removeItem("authToken");
-        window.location.reload();
-
-    }
-
+        try {
+           logout();
+        } catch (error) {
+            console.error("Logout error:", error);
+            alert("An error occurred during logout.");
+        }
+    };
 
     return (
         <button onClick={handleSubmit}>Logout</button>
-    )
+    );
 }
 
 export default LogoutButton;

@@ -24,14 +24,14 @@ function GetTodo() {
     };
 
     const fetchTodoItem = async (todoId, tz) => {
-        const token = localStorage.getItem('authToken')
         try {
             const response = await fetch(`https://localhost:7060/api/todo/${todoId}?timezone=${tz}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                }
+                },
+                credentials: 'include'
+
             });
 
             if (!response.ok) throw new Error('Failed to fetch todo');

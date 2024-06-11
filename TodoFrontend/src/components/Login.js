@@ -12,37 +12,12 @@ const Login = () => {
         console.log("Attempting login for:", username);
 
         try {
-            const response = await fetch('https://localhost:7060/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username, password })
-            });
-
-            if (!response.ok) {
-                console.error("Login request failed with status:", response.status);
-                const errorData = await response.json(); // Properly parse error messages
-                console.error("Login failed with error:", errorData.error || "Unknown error");
-                alert(errorData.error || 'Login failed due to server error');
-                return;
-            }
-
-            const data = await response.json();
-            console.log("Login successful, received data:", data);
-
-            if (data.accessToken && data.refreshToken) {
-                login(data.accessToken, data.refreshToken);
-            } else {
-                console.error("Received data is missing the accessToken or refreshToken:", data);
-                alert("Login failed due to missing tokens.");
-            }
+            await login(username, password);
         } catch (error) {
             console.error("Error during the login process:", error);
             alert("An error occurred while logging in.");
         }
     };
-
 
     return (
         <form onSubmit={handleSubmit}>

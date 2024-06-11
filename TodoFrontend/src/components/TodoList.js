@@ -1,20 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HubConnectionBuilder, LogLevel, HubConnectionState } from '@microsoft/signalr';
+import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
 const TodoList = () => {
     const [todos, setTodos] = useState([]);
-    const hubConnectionRef = useRef(null); // Using useRef to persist the hub connection
+    const hubConnectionRef = useRef(null);
 
     useEffect(() => {
         const fetchTodos = async () => {
-            const token = localStorage.getItem('authToken');
             const response = await fetch('https://localhost:7060/api/todo', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
             });
             if (!response.ok) {
                 console.error(`Failed to fetch todos: ${response.statusText}`);
@@ -28,16 +25,10 @@ const TodoList = () => {
     }, []);
 
     useEffect(() => {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-            console.error("No auth token available.");
-            return;
-        }
-
-        if (hubConnectionRef.current) return; // Ensures only one connection instance
+        if (hubConnectionRef.current) return;
 
         const connection = new HubConnectionBuilder()
-            .withUrl('https://localhost:7060/todoHub', { accessTokenFactory: () => token })
+            .withUrl('https://localhost:7060/todoHub', { withCredentials: true })
             .configureLogging(LogLevel.Information)
             .withAutomaticReconnect()
             .build();
@@ -76,14 +67,11 @@ const TodoList = () => {
         };
     }, []);
 
-        const handleDueDateChange = async (todoId, date) => {
-        const token = localStorage.getItem('authToken');
+    const handleDueDateChange = async (todoId, date) => {
         const response = await fetch(`https://localhost:7060/api/todo/updateDueDate/${todoId}`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify(date)
         });
 
@@ -96,18 +84,16 @@ const TodoList = () => {
         try {
             const response = await fetch(`https://localhost:7060/api/todo/toggleCompletion/${todoId}`, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({isComplete: !isComplete})
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ isComplete: !isComplete })
             });
             if (!response.ok) {
                 throw new Error(`Failed to toggle todo completion: ${response.statusText}`);
             }
             const updatedTodo = await response.json();
             setTodos(currentTodos => currentTodos.map(todo =>
-                todo.id === updatedTodo.id ? {...todo, ...updatedTodo} : todo
+                todo.id === updatedTodo.id ? { ...todo, ...updatedTodo } : todo
             ));
         } catch (error) {
             console.error("Error toggling todo completion: ", error);
@@ -147,8 +133,3 @@ const TodoList = () => {
 };
 
 export default TodoList;
-
-
-
-
-
