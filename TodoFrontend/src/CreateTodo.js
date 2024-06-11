@@ -28,11 +28,6 @@ function CreateTodo() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const token = localStorage.getItem('authToken');
-        if (!token){
-            console.error('Missing JWT token in local storage')
-            return;
-        }
 
         const todo = {
             description,
@@ -44,9 +39,9 @@ function CreateTodo() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(todo),
+            credentials: 'include'
         });
         if (response.ok) {
             console.log("Todo created successfully");

@@ -1,70 +1,57 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-    const [authToken, setAuthToken] = useState(localStorage.getItem('authToken'));
-    const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-    useEffect(() => {
-        // Setup all fetch requests to use the authToken if available
-        const defaultHeaders = {
-            'Authorization': authToken ? `Bearer ${authToken}` : '',
-            'Content-Type': 'application/json'
-        };
+    const login = async (username, password) => {
+        const response = await fetch('https://localhost:7060/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', // Ensure cookies are sent and received
+            body: JSON.stringify({ username, password })
+        });
 
-        fetch.defaults = { headers: defaultHeaders };
-    }, [authToken]);
-
-    const login = (authToken, refreshToken) => {
-        console.log('Storing tokens:', { authToken, refreshToken });
-        localStorage.setItem('authToken', authToken);
-        localStorage.setItem('refreshToken', refreshToken);
-        setAuthToken(authToken);
-        setRefreshToken(refreshToken);
+        if (response.ok) {
+            setIsLoggedIn(true);
+            console.log('Login successful');
+        } else {
+            console.error('Login failed:', await response.json());
+        }
     };
 
-    const logout = () => {
-        console.log('Logging out');
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('refreshToken');
-        setAuthToken(null);
-        setRefreshToken(null);
-    };
-
-    const refreshAccessToken = async () => {
-        try {
-            console.log('Attempting to refresh access token with refresh token:', refreshToken);
-            const response = await fetch('https://localhost:7060/refresh-token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refreshToken })
-            });
-            const data = await response.json();
-            if (response.ok) {
-                console.log('Received new tokens:', data);
-                login(data.accessToken, data.refreshToken);
-            } else {
-                console.error('Failed to refresh token:', data);
-                logout();
-            }
-        } catch (error) {
-            console.error('Error refreshing access token:', error);
-            logout();
+    const logout = async () => {
+        const response = await fetch('https://localhost:7060/logout', {
+            method: 'POST',
+            credentials: 'include',
+        });
+        if (response.ok) {
+            setIsLoggedIn(false);
+            console.log('Logout successful');
+        } else {
+            console.error('Logout failed:', await response.json());
         }
     };
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            if (authToken) {
-                refreshAccessToken();
+        const checkSession = async () => {
+            const response = await fetch('https://localhost:7060/check-session', {
+                credentials: 'include'
+            });
+            if (response.ok) {
+                setIsLoggedIn(true);
+                console.log('Session active');
+            } else {
+                setIsLoggedIn(false);
+                console.log('No active session');
             }
-        }, 1000 * 60 * 28);
-        return () => clearInterval(interval);
-    }, [authToken]);
+        };
+        checkSession();
+    }, []);
 
     return (
-        <AuthContext.Provider value={{ authToken, refreshToken, login, logout, refreshAccessToken }}>
+        <AuthContext.Provider value={{ isLoggedIn, login, logout }}>
             {children}
         </AuthContext.Provider>
     );

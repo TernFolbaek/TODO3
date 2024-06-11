@@ -1,4 +1,3 @@
-// src/App.js
 import React from 'react';
 import { useAuth } from './auth/AuthContext';
 import Login from './components/Login';
@@ -9,18 +8,18 @@ import TodoList from './components/TodoList'; // Import the TodoList component
 import LogoutButton from './components/LogoutButton';
 
 const App = () => {
-    const { authToken } = useAuth();
+    const { isLoggedIn } = useAuth();
 
     return (
         <div>
-            {!authToken ? (
+            {!isLoggedIn ? (
                 <div>
                     <Login />
                     <Signup />
                 </div>
             ) : (
                 <>
-                    <LogoutButton/>
+                    <LogoutButton />
                     <CreateTodo />
                     <GetTodo />
                     <TodoList />
