@@ -12,6 +12,8 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions.Common;
+using Npgsql.Replication.PgOutput.Messages;
+
 namespace TODO.Models
 {
     public class TokenRequest
@@ -88,30 +90,7 @@ namespace TODO.Controllers
                 return Convert.ToBase64String(randomNumber);
             }
         }
-
         
-
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginViewModel model)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            var hashedPassword = HashPassword(model.Password);
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Username == model.Username && u.Password == hashedPassword);
-
-            if (user != null)
-            {
-                var (accessToken, refreshToken) = GenerateTokens(user);
-                return Ok(new { accessToken, refreshToken, message = "Login successful" });
-            }
-
-            _logger.LogWarning($"Login failed for user {model.Username}: Invalid username or password");
-            return BadRequest(new { error = "Invalid login attempt." });
-        }
 
         private string HashPassword(string password)
         {
@@ -126,44 +105,81 @@ namespace TODO.Controllers
                 return builder.ToString();
             }
         }
+        [HttpPost("login")]
+public async Task<IActionResult> Login([FromBody] LoginViewModel model)
+{
+    if (!ModelState.IsValid)
+    {
+        return BadRequest(ModelState);
+    }
 
-        [HttpPost("signup")]
-        public async Task<IActionResult> Signup([FromBody] SignupViewModel model)
+    var hashedPassword = HashPassword(model.Password);
+    var user = await _context.Users
+        .FirstOrDefaultAsync(u => u.Username == model.Username && u.Password == hashedPassword);
+
+    if (user != null)
+    {
+        var (accessToken, refreshToken) = GenerateTokens(user);
+
+        var cookiesOptions = new CookieOptions
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            HttpOnly = true,
+            Expires = DateTime.UtcNow.AddDays(7),
+            Secure = true,
+            SameSite = SameSiteMode.Strict // or None if needed
+        };
 
-            var existingUser = await _context.Users.AnyAsync(u => u.Username == model.Username);
-            if (existingUser)
-            {
-                return BadRequest(new { error = "Username already exists." });
-            }
+        Response.Cookies.Append("AccessToken", accessToken, cookiesOptions);
+        Response.Cookies.Append("RefreshToken", refreshToken, cookiesOptions);
 
-            var hashedPassword = HashPassword(model.Password);
-            var newUser = new User 
-            { 
-                Username = model.Username, 
-                Password = hashedPassword,
-                RefreshToken = GenerateRefreshToken(),
-                RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7)
-            };
+        return Ok(new { message = "Login successful" });
+    }
 
-            _context.Users.Add(newUser);
-            try
-            {
-                await _context.SaveChangesAsync();
-                var (accessToken, refreshToken) = GenerateTokens(newUser);
-                return Ok(new { accessToken, refreshToken, message = "Signup successful" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error during signup: {ex}");
-                return StatusCode(500, "An error occurred while creating the user account.");
-            }
-        }
+    _logger.LogWarning($"Login failed for user {model.Username}: Invalid username or password");
+    return BadRequest(new { error = "Invalid login attempt." });
+}
 
+[HttpPost("signup")]
+public async Task<IActionResult> Signup([FromBody] SignupViewModel model)
+{
+    if (!ModelState.IsValid)
+    {
+        return BadRequest(ModelState);
+    }
+
+    var existingUser = await _context.Users.AnyAsync(u => u.Username == model.Username);
+    if (existingUser)
+    {
+        return BadRequest(new { error = "Username already exists." });
+    }
+
+    var hashedPassword = HashPassword(model.Password);
+    var newUser = new User
+    {
+        Username = model.Username,
+        Password = hashedPassword,
+        RefreshToken = GenerateRefreshToken(),
+        RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7)
+    };
+
+    _context.Users.Add(newUser);
+    await _context.SaveChangesAsync();
+
+    var (accessToken, refreshToken) = GenerateTokens(newUser);
+
+    var cookieOptions = new CookieOptions
+    {
+        HttpOnly = true,
+        Expires = DateTime.UtcNow.AddDays(7),
+        Secure = true,
+        SameSite = SameSiteMode.Strict // or None if needed
+    };
+
+    Response.Cookies.Append("AccessToken", accessToken, cookieOptions);
+    Response.Cookies.Append("RefreshToken", refreshToken, cookieOptions);
+
+    return Ok(new { message = "Signup successful" });
+}
 
 
         
@@ -186,11 +202,7 @@ namespace TODO.Controllers
             _logger.LogInformation($"Generated new refresh token: {newTokens.RefreshToken}");
             return Ok(new { accessToken = newTokens.AccessToken, refreshToken = newTokens.RefreshToken });
         }
-
-
-
-
-
+        
         public void LogNewUserSignup(string username)
         {
             _logger.LogInformation($"New user signed up: {username}");
@@ -199,9 +211,39 @@ namespace TODO.Controllers
         [HttpPost("logout")]
         public IActionResult Logout()
         {
-            HttpContext.Session.Remove("LoggedInUser");
+            Response.Cookies.Delete("AccessToken", new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict
+            });
+            Response.Cookies.Delete("RefreshToken", new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict
+            });
+
             return Ok(new { message = "Logged out successfully" });
         }
+
+        
+        [HttpGet("check-session")]
+        public IActionResult CheckSession()
+        {
+            if (User.Identity.IsAuthenticated)
+            {
+                // If JWT is valid and not expired (this check is automatically done by the JWT middleware)
+                return Ok(new { message = "Session is active." });
+            }
+            else
+            {
+                // If the JWT is invalid or expired
+                return Unauthorized(new { message = "Session expired or invalid." });
+            }
+        }
+
+
         
         // GET: api/users
         [HttpGet("users")]

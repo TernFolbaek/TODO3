@@ -9,6 +9,7 @@ using Hangfire.PostgreSql;
 using Microsoft.OpenApi.Models;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using TODO.Hubs;
 using TODO.Services;
@@ -34,10 +35,11 @@ builder.Logging.AddDebug();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowWebApp",
-        policy => policy.WithOrigins("http://localhost:3000")
+        policy => policy
+            .WithOrigins("http://localhost:3000")
             .AllowAnyMethod()
             .AllowAnyHeader()
-            .AllowCredentials());  
+            .AllowCredentials());
 });
 
 // Configure database context
@@ -54,32 +56,43 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "TODO API", Version = "v1" });
 });
 
-// Add session configuration
-builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-});
-
 // Configure JWT Authentication
 var secretKey = builder.Configuration["JWTSecureKey"];
 var key = Encoding.ASCII.GetBytes(secretKey);
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(options =>
+})
+.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
 {
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = 401;
+        return Task.CompletedTask;
+    };
+})
+.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+{
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
         ValidateIssuer = false,
         ValidateAudience = false
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            context.Token = context.Request.Cookies["AccessToken"];
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -105,14 +118,6 @@ app.UseEndpoints(endpoints =>
     endpoints.MapControllers();
     endpoints.MapHub<TodoHub>("/todoHub");
 });
-
-// Schedule Hangfire jobs
-app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TodoService>(
-    "CheckOverdueTodos",
-    service => service.CheckAndUpdateTodoStatuses(),
-    "*/15 * * * * *"
-
-);
 
 await app.RunAsync();
 

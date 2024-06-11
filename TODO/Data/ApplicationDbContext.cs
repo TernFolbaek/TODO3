@@ -17,6 +17,8 @@ public class ApplicationDbContext : DbContext
         // Primary key configurations
         modelBuilder.Entity<TodoItem>().HasKey(x => x.Id);
         modelBuilder.Entity<User>().HasKey(x => x.Id);
+        modelBuilder.Entity<User>().Property(u => u.Id).ValueGeneratedOnAdd();
+
         modelBuilder.Entity<UserTodo>().HasKey(x => new { x.UserId, x.TodoId });
 
         // Configuring the many-to-many relationship via UserTodo
