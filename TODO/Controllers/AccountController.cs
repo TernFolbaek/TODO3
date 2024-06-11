@@ -172,7 +172,7 @@ public async Task<IActionResult> Signup([FromBody] SignupViewModel model)
         HttpOnly = true,
         Expires = DateTime.UtcNow.AddDays(7),
         Secure = true,
-        SameSite = SameSiteMode.Strict // or None if needed
+        SameSite = SameSiteMode.Strict 
     };
 
     Response.Cookies.Append("AccessToken", accessToken, cookieOptions);
@@ -211,21 +211,20 @@ public async Task<IActionResult> Signup([FromBody] SignupViewModel model)
         [HttpPost("logout")]
         public IActionResult Logout()
         {
-            Response.Cookies.Delete("AccessToken", new CookieOptions
+            var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Strict
-            });
-            Response.Cookies.Delete("RefreshToken", new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict
-            });
+                SameSite = SameSiteMode.None,
+                Expires = DateTime.UtcNow.AddYears(-1), 
+            };
+
+            Response.Cookies.Delete("AccessToken", cookieOptions);
+            Response.Cookies.Delete("RefreshToken", cookieOptions);
 
             return Ok(new { message = "Logged out successfully" });
         }
+
 
         
         [HttpGet("check-session")]
@@ -233,7 +232,6 @@ public async Task<IActionResult> Signup([FromBody] SignupViewModel model)
         {
             if (User.Identity.IsAuthenticated)
             {
-                // If JWT is valid and not expired (this check is automatically done by the JWT middleware)
                 return Ok(new { message = "Session is active." });
             }
             else
