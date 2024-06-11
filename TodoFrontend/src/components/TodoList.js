@@ -85,7 +85,7 @@ const TodoList = () => {
             const response = await fetch(`https://localhost:7060/api/todo/toggleCompletion/${todoId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include', // Ensure cookies are sent with the request
+                credentials: 'include',
                 body: JSON.stringify({ isComplete: !isComplete })
             });
             if (!response.ok) {

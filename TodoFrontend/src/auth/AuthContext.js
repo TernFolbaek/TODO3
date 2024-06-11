@@ -9,7 +9,7 @@ export const AuthProvider = ({ children }) => {
         const response = await fetch('https://localhost:7060/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include', // Ensure cookies are sent and received
+            credentials: 'include',
             body: JSON.stringify({ username, password })
         });
 
