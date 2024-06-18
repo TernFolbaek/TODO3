@@ -23,7 +23,8 @@ namespace TODO.Services
         public async Task CheckAndUpdateTodoStatuses()
         {
             _logger.LogInformation("Starting to check and update todo statuses.");
-            using var transaction = _context.Database.BeginTransaction();
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            
             try
             {
                 var currentTimeUtc = DateTimeOffset.UtcNow;
@@ -36,13 +37,13 @@ namespace TODO.Services
                     _logger.LogInformation($"Todo Item: ID={item.Id}, Description={item.Description}, Status={item.Status}, Due Date={item.DueDate}");
                 }
                 _logger.LogInformation("------------------------------------------------------------------------------------------------------------------");
-
-                var todosToUpdate = _context.TodoItems
+                
+                var todosToUpdate   = await _context.TodoItems 
                     .Where(t => (t.DueDate < currentTimeUtc && t.Status != "Overdue") ||
                                 (t.DueDate >= currentTimeUtc && t.Status == "Overdue"))
-                    .ToList();
+                    .ToListAsync();
 
-                _logger.LogInformation($"Evaluated at UTC time: {currentTimeUtc}. Found {todosToUpdate.Count} todos to update.");
+                _logger.LogInformation("Evaluated at UTC time: {currentTimeUtc}. Found {todosToUpdate.Count} todos to update.", currentTimeUtc, todosToUpdate.Count);
 
                 if (todosToUpdate.Any())
                 {
@@ -51,7 +52,7 @@ namespace TODO.Services
                         string newStatus = todo.DueDate < currentTimeUtc ? "Overdue" : "Pending";
                         if (todo.Status != newStatus)
                         {
-                            _logger.LogInformation($"Changing status for Todo ID {todo.Id} from {todo.Status} to {newStatus}.");
+                            _logger.LogInformation("Changing status for Todo ID {TodoId} from {OldStatus} to {newStatus}.", todo.Id, todo.Status, newStatus);
                             todo.Status = newStatus;
                             _context.TodoItems.Update(todo);
                             await _hubContext.Clients.All.SendAsync("ReceiveTodoStatusUpdate", todo.Id, todo.Status);

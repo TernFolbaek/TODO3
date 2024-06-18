@@ -57,4 +57,9 @@
       <_ContentIncludedByDefault Remove="Views\Todo\Index.cshtml" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Compile Remove="Migrations\20240611105320_EnsureAutoIncrement.cs" />
+      <Compile Remove="Migrations\20240611105320_EnsureAutoIncrement.Designer.cs" />
+    </ItemGroup>
+
 </Project>
