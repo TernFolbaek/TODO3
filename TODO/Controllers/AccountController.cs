@@ -126,7 +126,7 @@ public async Task<IActionResult> Login([FromBody] LoginViewModel model)
             HttpOnly = true,
             Expires = DateTime.UtcNow.AddDays(7),
             Secure = true,
-            SameSite = SameSiteMode.Strict // or None if needed
+            SameSite = SameSiteMode.None // Switched from Strict to None, fixed cookie session error
         };
 
         Response.Cookies.Append("AccessToken", accessToken, cookiesOptions);
@@ -172,7 +172,7 @@ public async Task<IActionResult> Signup([FromBody] SignupViewModel model)
         HttpOnly = true,
         Expires = DateTime.UtcNow.AddDays(7),
         Secure = true,
-        SameSite = SameSiteMode.Strict 
+        SameSite = SameSiteMode.None 
     };
 
     Response.Cookies.Append("AccessToken", accessToken, cookieOptions);

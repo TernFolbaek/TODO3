@@ -69,7 +69,7 @@ builder.Services.AddAuthentication(options =>
 {
     options.Cookie.HttpOnly = true;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SameSite = SameSiteMode.None; // Switched from Strict to None, fixed cookie session error
     options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
     options.Events.OnRedirectToLogin = context =>
     {
